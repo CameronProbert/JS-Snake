@@ -1,0 +1,264 @@
+<canvas id="gc" width="400" height="500"></canvas>
+
+<script>
+
+// Time
+ticksPerSecond = 20;
+tickTime = 1000/ticksPerSecond;
+startTime = tickTime * 40;
+maxPausedTime = ticksPerSecond*3; // Time in ticks
+pausedTime = maxPausedTime;
+blinkFreq = 2;
+
+// Canvas
+gameHeight = 400;
+gameWidth = 400;
+tilesX = 20;
+tilesY = 20;
+tileSize = 20; // 20px tile hite and width
+tileBuffer = 1; // 1px buffer around each snake segment
+
+// Snake
+startX = 5;
+startY = 5;
+startLength = 5;
+startTail = [[startX-4, startY], [startX-3, startY], [startX-2, startY], [startX-1, startY], [startX, startY]];
+startVelX = 1; //Moving right
+startVelY = 0; //Not moving vertically
+headX = startX;
+headY = startY;
+tailLength = startLength;
+tail = startTail.slice();
+velX = startVelX;
+velY = startVelY;
+hasMoved = false;
+
+// Apple
+appleX = parseInt(Math.random() * tilesX);
+appleY = parseInt(Math.random() * tilesY);
+
+// Score
+fontSize = 20;
+fontType = "Arial"
+baseScorePerApple = 10;
+highScore = 0;
+currentScore = 0;
+applesEaten = 0;
+
+window.onload=function() {
+	canvas = document.getElementById("gc");
+	context = canvas.getContext("2d");
+	document.addEventListener("keydown", keyPush);
+	setInterval(game, tickTime);
+}
+
+function keyPush(key){
+	if (hasMoved) return;
+	switch (key.keyCode){
+		case 37:
+			left();
+			break;
+		case 38:
+			up();
+			break;
+		case 39:
+			right();
+			break;
+		case 40:
+			down();
+			break;
+	}
+	
+	//console.log ("Key pressed! || " + parseInt(key.keyCode));
+}
+
+function left(){
+	if (!(velX != -1 && velY == 0)){
+		velX = -1;
+		velY = 0;
+		hasMoved = true;
+	}
+}
+
+function right(){
+	if (!(velX != 1 && velY == 0)){
+		velX = 1;
+		velY = 0;
+		hasMoved = true;
+	}
+}
+
+function up(){
+	if (!(velX != 0 && velY == -1)){
+		velX = 0;
+		velY = -1;
+		hasMoved = true;
+	}
+}
+
+function down(){
+	if (!(velX != 0 && velY == 1)){
+		velX = 0;
+		velY = 1;
+		hasMoved = true;
+	}
+}
+
+function game(){
+	moveSnake();
+	drawCanvas();
+}
+
+function initialiseSnake() {
+	headX = startX;
+	headY = startY;
+	tailLength = startLength;
+	tail = startTail.slice();
+	velX = startVelX;
+	velY = startVelY;
+	currentScore = 0;
+	pause(maxPausedTime);
+}
+
+function moveSnake(){
+	
+	if (pausedTime > 0) {
+		pausedTime--;
+		return;
+	}
+	
+	headX += velX;
+	headY += velY;
+	
+	if (headX < 0){
+		headX = tilesX-1;
+	}
+	if (headY < 0){
+		headY = tilesY-1;
+	}
+	if (headX > tilesX-1){
+		headX = 0;
+	}
+	if (headY > tilesY-1){
+		headY = 0;
+	}
+	
+	tail.push([headX, headY]);
+	
+	// "Move the snake"
+	if (tail.length > tailLength){
+		tail.shift();
+	}
+	
+	// Eats the apple
+	if (headX == appleX && headY == appleY){
+		eatApple();
+	}
+	
+	// Kill the snake if it hits itself
+	if (isInTail(headX, headY)){
+		initialiseSnake();
+		return;	
+	}
+	
+	hasMoved = false;
+	
+	//console.log (headX + " || " + headY)
+	//console.log (tail[0][0] + " || " + tail[0][1] + " - "
+	//	+ tail[1][0] + " || " + tail[1][1] + " - "
+	//	+ tail[2][0] + " || " + tail[2][1] + " - "
+	//	+ tail[3][0] + " || " + tail[3][1] + " - "
+	//	+tail[4][0] + " || " + tail[4][1])
+}
+
+function eatApple(){
+	tailLength++;
+	
+	while (isInTailOrHead(appleX, appleY)){
+		appleX = parseInt(Math.random() * tilesX);
+		appleY = parseInt(Math.random() * tilesY);
+	}
+	currentScore += baseScorePerApple + ++applesEaten;
+	//console.log(currentScore);
+	
+	if (currentScore > highScore){
+		highScore = currentScore;
+	}
+}
+
+// Does not include the head
+function isInTail(x, y){
+	for (let i = 0; i < tail.length-1; i++){
+		if (tail[i][0] == x && tail[i][1] == y){
+			return true;
+		}
+	}
+	return false;
+}
+
+// Does not include the head
+function isInTailOrHead(x, y){
+	for (let i = 0; i < tail.length; i++){
+		if (tail[i][0] == x && tail[i][1] == y){
+			return true;
+		}
+	}
+	return false;
+}
+
+function drawCanvas(){
+	
+	context.clearRect(0, 0, canvas.width, canvas.height);
+	
+	for (let x = 0; x < tilesX; x++){
+		for (let y = 0; y < tilesY; y++){
+			colour = "DimGrey";
+			
+			if (x == appleX && y == appleY){
+				colour = "Red";
+			}
+			
+			for (let index = 0; index < tail.length; index++){
+				if (tail[index][0] == x && tail[index][1] == y){
+					if (pausedTime > 0 && parseInt(pausedTime / blinkFreq) % 2 == 0){
+						//console.log(parseInt(pausedTime/5));
+						colour = "Green";
+					}else {
+						colour = "LightGreen";
+					}
+				}
+				//console.log(tail[index][0] + " || " + tail[index][1])
+			}
+			
+			context.fillStyle = colour;
+			
+			context.fillRect(
+				x * tileSize + tileBuffer,
+				y * tileSize + tileBuffer,
+				tileSize - tileBuffer * 2,
+				tileSize - tileBuffer * 2
+			)
+		}
+	}
+	
+	context.fillStyle = "DimGrey";
+	context.font = fontSize + "px " + fontType;
+	
+	scoreX = gameWidth / 6;
+	scoreY = gameHeight + 40;
+	scoreText = "Score: " + currentScore;
+	context.fillText(scoreText, scoreX, scoreY)
+	
+	highScoreX = gameWidth * 7 / 12;
+	highScoreY = gameHeight + 40;
+	highScoreText = "Highscore: " + highScore;
+	context.fillText(highScoreText, highScoreX, highScoreY)
+	
+	context.stroke();
+}
+
+function pause(ticks){
+	pausedTime = ticks;
+}
+
+</script>
